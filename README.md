@@ -2,11 +2,13 @@
 
 A Sender rate limit policy daemon for Postfix.
 
-Copyright (c) Onlime Webhosting (http://www.onlime.ch)
+Original Copyright (c) Onlime Webhosting (http://www.onlime.ch)
+
+Modified by Mathieu Pellegrin for WellHosted (http://www.wellhosted.ch)
 
 ## Credits
 
-This project was forked from [bejelith/send_rate_policyd](https://github.com/bejelith/send_rate_policyd). All credits go to [Simone Caruso](http://www.simonecaruso.com).
+This project was forked from onlime/ratelimit-policyd and modified to ensure that only authenticated users are counted for quota. All credits go to Simone Caruso for his original work (bejelith/send_rate_policyd).
 
 ## Purpose
 
@@ -36,6 +38,10 @@ The original forked code from [bejelith/send_rate_policyd](https://github.com/be
 - added logrotation script for /var/log/ratelimit-policyd.log
 - added flag in ratelimit DB table to make specific quotas persistent (all others will get reset to default after expiry)
 - continue raising counter even in over quota state
+
+The script from Onlime Webhosting was modified to :
+ - Support smtpd_sender_restrictions (triggerd only on successful SASL login) instead of smtpd_data_restrictions (triggered when processing any outgoing mail)
+ - As a consequence, the script is neutral for ISPConfig auto reply, auto forward, and any mail sent by Postfix without authentication (it will not count +1 on the quota for system mails, as long as your $mynetworks is configured accordingly)
 
 ## Installation
 
@@ -139,22 +145,16 @@ Threads running: 6, Threads waiting: 2
 
 ## Postfix Configuration
 
-Modify the postfix data restriction class ```smtpd_data_restrictions``` like the following, ```/etc/postfix/main.cf```:
+Modify the postfix data restriction class ```smtpd_sender_restrictions``` like the following, ```/etc/postfix/main.cf```:
 
 ```
-smtpd_data_restrictions = check_policy_service inet:$IP:$PORT
+smtpd_sender_restrictions = check_policy_service inet:$IP:$PORT
 ```
 
-sample configuration (using ratelimitpolicyd as alias as smtpd_data_restrictions does not allow any whitespace):
+sample configuration (chained with classic SASL authentication from MySQL):
 
 ```
-smtpd_restriction_classes = ratelimitpolicyd
-ratelimitpolicyd = check_policy_service inet:127.0.0.1:10032
-
-smtpd_data_restrictions =
-        reject_unauth_pipelining,
-        ratelimitpolicyd,
-        permit
+smtpd_sender_restrictions = check_sender_access mysql:/etc/postfix/clients.cf, check_policy_service inet:127.0.0.1:10032
 ```
 
 If you're sure that ratelimit-policyd is really running, restart Postfix:

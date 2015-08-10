@@ -11,7 +11,7 @@ use File::Basename;
 my $semaphore = new Thread::Semaphore;
 
 ### CONFIGURATION SECTION
-my @allowedhosts    = ('127.0.0.1', '10.0.0.1');
+my @allowedhosts    = ('127.0.0.1');
 my $LOGFILE         = "/var/log/ratelimit-policyd.log";
 my $PIDFILE         = "/var/run/ratelimit-policyd.pid";
 my $SYSLOG_IDENT    = "ratelimit-policyd";
@@ -32,7 +32,7 @@ my $db_expirycol    = 'expiry';
 my $db_wherecol     = 'sender';
 my $db_persistcol   = 'persist';
 my $deltaconf       = 'daily'; # hourly|daily|weekly|monthly
-my $defaultquota    = 1000;
+my $defaultquota    = 300; # 300 recipients by day and by user, CC and CCI count as well
 my $sql_getquota    = "SELECT $db_quotacol, $db_tallycol, $db_expirycol, $db_persistcol FROM $db_table WHERE $db_wherecol = ? AND $db_quotacol > 0";
 my $sql_updatequota = "UPDATE $db_table SET $db_tallycol = $db_tallycol + ?, $db_updatedcol = NOW(), $db_expirycol = ? WHERE $db_wherecol = ?";
 my $sql_updatereset = "UPDATE $db_table SET $db_quotacol = ?, $db_tallycol = ?, $db_updatedcol = NOW(), $db_expirycol = ? WHERE $db_wherecol = ?";
@@ -224,10 +224,15 @@ sub handle_req {
 		}
 	}
 
-	if ($protocol_state !~ m/DATA/ || $sasl_username eq "" ) {
-		return "ok";
+	if ($protocol_state !~ m/RCPT/ || $sasl_username eq "" ) {
+		# It should not happen if check_policy is chained after proper authentication on smtpd_sender_restrictions
+		logger("protocol_state=$protocol_state sasl_username=$sasl_username");
+		return "dunno";
+	} else {
+		# One RCPT is triggered by outgoing address, including CC and CCI, no need to count
+		$recipient_count = 1;
 	}
-	
+
 	my $skey = '';
 	if ($s_key_type eq 'domain') {
 		$skey = (split("@", $sasl_username))[1];
