@@ -3,7 +3,6 @@ use Socket;
 use POSIX ;
 use DBI;
 use Sys::Syslog;
-use Switch;
 use threads;
 use threads::shared;
 use Thread::Semaphore; 
@@ -199,28 +198,20 @@ sub handle_req {
 		my @line = split("=", $aline);
 		chomp(@line);
 		#logger("DEBUG ". $line[0] ."=". $line[1]);
-		switch($line[0]) {
-			case "protocol_state" { 
-				chomp($protocol_state = $line[1]);
-			}
-			case "sasl_method"{
-				chomp($sasl_method = $line[1]);
-			}
-			case "sasl_username"{
-				chomp($sasl_username = $line[1]);
-			}
-			case "recipient_count"{
-				chomp($recipient_count = $line[1]);
-			}
-			case "queue_id"{
-				chomp($queue_id = $line[1]);
-			}
-			case "client_address"{
-				chomp($client_address = $line[1]);
-			}
-			case "client_name"{
-				chomp($client_name = $line[1]);
-			}
+		if ($line[0] eq "protocol_state") {
+			chomp($protocol_state = $line[1]);
+		} elsif ($line[0] eq "sasl_method") {
+			chomp($sasl_method = $line[1]);
+		} elsif ($line[0] eq "sasl_username") {
+			chomp($sasl_username = $line[1]);
+		} elsif ($line[0] eq "recipient_count") {
+			chomp($recipient_count = $line[1]);
+		} elsif ($line[0] eq "queue_id") {
+			chomp($queue_id = $line[1]);
+		} elsif ($line[0] eq "client_address") {
+			chomp($client_address = $line[1]);
+		} elsif ($line[0] eq "client_name") {
+			chomp($client_name = $line[1]);
 		}
 	}
 
