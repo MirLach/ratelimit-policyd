@@ -6,9 +6,13 @@ Original Copyright (c) Onlime Webhosting (http://www.onlime.ch)
 
 Modified by Mathieu Pellegrin for WellHosted (http://www.wellhosted.ch)
 
+Modified by Miroslav Lachman to FreeBSD ports. (2018)
+
 ## Credits
 
-This project was forked from onlime/ratelimit-policyd and modified to ensure that only authenticated users are counted for quota. All credits go to Simone Caruso for his original work (bejelith/send_rate_policyd).
+Forked from onlime/ratelimit-policyd and modified to ensure that only authenticated users are counted for quota. All credits go to Simone Caruso for his original work (bejelith/send_rate_policyd).
+
+This project was forked and modified for inclusion in FreeBSD ports tree. Dropped dependency on Switch.pm, added use strict and warnings, separate config file, rc script for automatic start on system boot.
 
 ## Purpose
 
@@ -42,17 +46,21 @@ The original forked code from [bejelith/send_rate_policyd](https://github.com/be
 The script from Onlime Webhosting was modified to :
  - Support smtpd_sender_restrictions (triggerd only on successful SASL login) instead of smtpd_data_restrictions (triggered when processing any outgoing mail)
  - As a consequence, the script is neutral for ISPConfig auto reply, auto forward, and any mail sent by Postfix without authentication (it will not count +1 on the quota for system mails, as long as your $mynetworks is configured accordingly)
+ 
+The script from Mathieu Pellegrin (WellHosted) was modified to :
+ - removed dependency on Switch
+ - modified to use strict and warnings
+ - modified shebang line to FreeBSD's #!/usr/local/bin/perl
+ - renamed from daemon.pl to ratelimit-policyd.pl
+ - use separate file for configuration variables /usr/local/etc/ratelimit-policyd.cfg (script can be updated without overwriting user modified settings)
+ - created rc.d/ratelimit-policyd for FreeBSD
 
 ## Installation
 
 Recommended installation:
 
 ```bash
-$ cd /opt/
-$ git clone https://github.com/onlime/ratelimit-policyd.git ratelimit-policyd
-$ cd ratelimit-policyd
-$ chmod +x install.sh
-$ ./install.sh
+$ pkg install ratelimit-policyd
 ```
 
 Create the DB schema and user:
@@ -66,36 +74,43 @@ GRANT USAGE ON *.* TO policyd@'localhost' IDENTIFIED BY '********';
 GRANT SELECT, INSERT, UPDATE, DELETE ON policyd.* TO policyd@'localhost';
 ```
 
-Adjust configuration options in ```daemon.pl```:
+Adjust configuration options in ```/usr/local/etc/ratelimit-policyd.cfg```:
 
 ```perl
-### CONFIGURATION SECTION
-my @allowedhosts    = ('127.0.0.1', '10.0.0.1');
-my $LOGFILE         = "/var/log/ratelimit-policyd.log";
-my $PIDFILE         = "/var/run/ratelimit-policyd.pid";
-my $SYSLOG_IDENT    = "ratelimit-policyd";
-my $SYSLOG_LOGOPT   = "ndelay,pid";
-my $SYSLOG_FACILITY = LOG_MAIL;
-chomp( my $vhost_dir = `pwd`);
-my $port            = 10032;
-my $listen_address  = '127.0.0.1'; # or '0.0.0.0'
-my $s_key_type      = 'email'; # domain or email
-my $dsn             = "DBI:mysql:policyd:127.0.0.1";
-my $db_user         = 'policyd';
-my $db_passwd       = '************';
-my $db_table        = 'ratelimit';
-my $db_quotacol     = 'quota';
-my $db_tallycol     = 'used';
-my $db_updatedcol   = 'updated';
-my $db_expirycol    = 'expiry';
-my $db_wherecol     = 'sender';
-my $deltaconf       = 'daily'; # hourly|daily|weekly|monthly
-my $defaultquota    = 1000;
-my $sql_getquota    = "SELECT $db_quotacol, $db_tallycol, $db_expirycol FROM $db_table WHERE $db_wherecol = ? AND $db_quotacol > 0";
-my $sql_updatequota = "UPDATE $db_table SET $db_tallycol = $db_tallycol + ?, $db_updatedcol = NOW(), $db_expirycol = ? WHERE $db_wherecol = ?";
-my $sql_updatereset = "UPDATE $db_table SET $db_tallycol = ?, $db_updatedcol = NOW(), $db_expirycol = ? WHERE $db_wherecol = ?";
-my $sql_insertquota = "INSERT INTO $db_table ($db_wherecol, $db_quotacol, $db_tallycol, $db_expirycol) VALUES (?, ?, ?, ?)";
-### END OF CONFIGURATION SECTION
+## configuration must by valid Perl code, variables started with "our"
+our @allowedhosts    = ('127.0.0.1', '10.0.0.1');
+our $LOGFILE         = "/var/log/ratelimit-policyd.log";
+our $PIDFILE         = "/var/run/ratelimit-policyd/ratelimit-policyd.pid";
+our $SYSLOG_IDENT    = "ratelimit-policyd";
+our $SYSLOG_LOGOPT   = "ndelay,pid";
+our $SYSLOG_FACILITY = LOG_MAIL;
+#chomp( my $vhost_dir = `pwd`);
+our $port            = 10032;
+our $listen_address  = '127.0.0.1'; # or '0.0.0.0'
+our $s_key_type      = 'email'; # domain or email
+our $dsn             = "DBI:mysql:sys_mail:localhost";
+our $db_user         = 'sys_mail_ratelimit';
+our $db_passwd       = '************';
+our $db_table        = 'ratelimit';
+our $db_quotacol     = 'quota';
+our $db_tallycol     = 'used';
+our $db_updatedcol   = 'updated';
+our $db_expirycol    = 'expiry';
+our $db_wherecol     = 'sender';
+our $db_persistcol   = 'persist';
+
+our $deltaconf       = 'daily'; # hourly|daily|weekly|monthly
+our $defaultquota    = 100;
+
+our $sql_getquota    = "SELECT $db_quotacol, $db_tallycol, $db_expirycol, $db_persistcol FROM $db_table WHERE $db_wherecol = ? AND $db_quotacol > 0";
+our $sql_updatequota = "UPDATE $db_table SET $db_tallycol = $db_tallycol + ?, $db_updatedcol = NOW(), $db_expirycol = ? WHERE $db_wherecol = ?";
+our $sql_updatereset = "UPDATE $db_table SET $db_quotacol = ?, $db_tallycol = ?, $db_updatedcol = NOW(), $db_expirycol = ? WHERE $db_wherecol = ?";
+our $sql_insertquota = "INSERT INTO $db_table ($db_wherecol, $db_quotacol, $db_tallycol, $db_expirycol) VALUES (?, ?, ?, ?)";
+
+our $thread_count = 3;
+our $min_threads = 2;
+
+1;
 ```
 
 **Take care of using a port higher than 1024 to run the script as non-root (our init script runs it as user "postfix").**
@@ -113,14 +128,15 @@ $ service ratelimit-policyd start
 Check if the daemon is really running:
 
 ```bash
-$ netstat -tl | grep 10032
-tcp        0      0 localhost.localdo:10032 *:*                     LISTEN
+$ netstat -an | egrep '\.10032.*LISTEN'
+tcp4       0      0 127.0.0.1.10032  *.*                    LISTEN
 
-$ cat /var/run/ratelimit-policyd.pid
+
+$ cat /var/run/ratelimit-policyd/ratelimit-policyd.pid
 30566
 
-$ ps aux | grep daemon.pl
-postfix  30566  0.4  0.1 176264 19304 ?        Ssl  14:37   0:00 /opt/send_rate_policyd/daemon.pl
+$ ps aux | grep ratelimit-policyd
+postfix  30566  0.4  0.1 176264 19304 ?        Ssl  14:37   0:00 /usr/local/bin/ratelimit-policyd.pl
 
 $ pstree -p | grep ratelimit
 init(1)-+-/opt/ratelimit-(11298)-+-{/opt/ratelimit-}(11300)
@@ -137,7 +153,7 @@ init(1)-+-/opt/ratelimit-(11298)-+-{/opt/ratelimit-}(11300)
 Print the cache content (in shared memory) with update statistics:
 
 ```bash
-$ service ratelimit-policyd status
+$ service ratelimit-policyd stats
 Printing shm:
 Domain		:	Quota	:	Used	:	Expire
 Threads running: 6, Threads waiting: 2
