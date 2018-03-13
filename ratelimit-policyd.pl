@@ -1,4 +1,7 @@
 #!/usr/bin/perl
+use strict;
+use warnings;
+
 use Socket;
 use POSIX ;
 use DBI;
@@ -40,7 +43,7 @@ my $sql_insertquota = "INSERT INTO $db_table ($db_wherecol, $db_quotacol, $db_ta
 
 $0=join(' ',($0,@ARGV));
 
-if ($ARGV[0] eq "printshm") {
+if ((defined $ARGV[0]) && ($ARGV[0] eq "printshm")) {
 	my $out = `echo "printshm"|nc $listen_address $port`;
 	print $out;
 	exit(0);
@@ -139,6 +142,8 @@ sub start_thr {
 				if ($message =~ m/printshm/) {
 					my $r=0;
 					my $w =0;
+					my $k;
+					my $v;
 					print $client "Printing shm:\r\n";
 					print $client "Domain\t\t:\tQuota\t:\tUsed\t:\tExpire\r\n";
 					while(($k,$v) = each(%quotahash)) {
@@ -193,6 +198,7 @@ sub handle_req {
 	my $queue_id;
 	my $client_address;
 	my $client_name;
+	my $aline;
 	local $/ = "\n";
 	foreach $aline(@buf) {
 		my @line = split("=", $aline);
@@ -242,6 +248,7 @@ sub handle_req {
 		my $dbh = get_db_handler()
 			or return "dunno";;
 		my $sql_query = $dbh->prepare($sql_getquota);
+		my @row;
 		$sql_query->execute($skey);
 		if ($sql_query->rows > 0) {
 			while(@row = $sql_query->fetchrow_array()) {
@@ -266,7 +273,7 @@ sub handle_req {
 			$dbh->disconnect;
 			$syslogMsg = sprintf($syslogMsgTpl, $recipient_count, $defaultquota, "INSERT");
 			logger($syslogMsg);
-			syslog(LOG_NOTICE, $syslogMsg);
+			syslog('notice', $syslogMsg);
 			return "dunno";
 		}
 	}
@@ -287,12 +294,12 @@ sub handle_req {
 	if ($quotahash{$skey}{'tally'} > $quotahash{$skey}{'quota'}) {
 		$syslogMsg = sprintf($syslogMsgTpl, $quotahash{$skey}{'tally'}, $quotahash{$skey}{'quota'}, "OVER_QUOTA");
 		logger($syslogMsg);
-		syslog(LOG_WARNING, $syslogMsg);
+		syslog('warning', $syslogMsg);
 		return "471 $deltaconf message quota exceeded"; 
 	}
 	$syslogMsg = sprintf($syslogMsgTpl, $quotahash{$skey}{'tally'}, $quotahash{$skey}{'quota'}, "UPDATE");
 	logger($syslogMsg);
-	syslog(LOG_INFO, $syslogMsg);
+	syslog('info', $syslogMsg);
 	return "dunno";
 }
 
@@ -309,7 +316,7 @@ sub get_db_handler {
 	if (!defined($dbh)) {
 		my $syslogMsg = sprintf("DB connection error (%s): %s", $DBI::err, $DBI::errstr);
 		logger($syslogMsg);
-		syslog(LOG_ERR, $syslogMsg);
+		syslog('err', $syslogMsg);
 	}
 	return $dbh;
 }
@@ -319,6 +326,8 @@ sub commit_cache {
 		or return undef;
 	my $sql_query = $dbh->prepare($sql_updatequota);
 	#lock($lock); -- lock at upper level
+	my $k;
+	my $v;
 	while(($k,$v) = each(%quotahash)) {
 		$sql_query->execute($quotahash{$k}{'sum'}, $quotahash{$k}{'expire'}, $k)
 			or logger("Query error:".$sql_query->errstr);
@@ -329,12 +338,14 @@ sub commit_cache {
 
 sub flush_cache {
 	lock($lock);
+	my $k;
 	foreach $k(keys %quotahash) {
 		delete $quotahash{$k};
 	}
 }
 
 sub print_cache {
+	my $k;
 	foreach $k(keys %quotahash) {
         logger("$k: $quotahash{$k}{'quota'}, $quotahash{$k}{'tally'}");
     }
@@ -383,6 +394,7 @@ sub daemonize {
 sub calcexpire {
 	my ($sec,$min,$hour,$mday,$mon,$year,$wday,$yday,$isdst) = localtime(time);
 	my ($arg) = @_;
+	my $exp;
 	if ($arg eq 'monthly') {
 		$exp = mktime (0, 0, 0, 1, ++$mon, $year);
 	} elsif ($arg eq 'weekly') {
@@ -392,7 +404,7 @@ sub calcexpire {
 	} elsif ($arg eq 'hourly') {
 		$exp = mktime (0, $min, ++$hour, $mday, $mon, $year);
 	} else {
-		$exp = mktime (0, 0, 0, 1, ++$mon, $year);
+		$exp = mktime (0, 0, 0, 1, ++$mon, $year);	#default = monthly
 	}
 	return $exp;
 }
