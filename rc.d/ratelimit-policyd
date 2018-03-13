@@ -1,0 +1,69 @@
+#!/bin/sh
+# $FreeBSD$
+#
+# PROVIDE: ratelimit_policyd
+# REQUIRE: DAEMON
+# KEYWORD: shutdown
+
+#
+# Add the following lines to /etc/rc.conf to enable nginx:
+# ratelimit_policyd_enable (bool):   Set to "NO" by default.
+#                                    Set it to "YES" to enable ratelimit_policyd
+
+. /etc/rc.subr
+
+name=ratelimit_policyd
+rcvar=ratelimit_policyd_enable
+
+extra_commands="stats"
+start_precmd="ratelimit_policyd_prestart"
+stop_precmd="ratelimit_policyd_prestop"
+stats_cmd="ratelimit_policyd_stats"
+
+load_rc_config $name
+
+: ${ratelimit_policyd_enable="NO"}
+: ${ratelimit_policyd_user="mailnull"}
+: ${ratelimit_policyd_group="mailnull"}
+: ${ratelimit_policyd_log="/var/log/ratelimit-policyd.log"}
+
+required_files="/usr/local/etc/ratelimit-policyd.cfg"
+pidfile="/var/run/ratelimit-policyd/ratelimit-policyd.pid"
+procname="/usr/local/bin/ratelimit-policyd.pl"
+command="/usr/sbin/daemon"
+command_args="-f -p ${pidfile} ${procname}"
+#command_args="-p ${pidfile} ${procname}"	## debug, print errors to stderr
+#command_args="-f -p ${pidfile} -u ${ratelimit_policyd_user} ${procname}"
+#command_interpreter="%%LOCALBASE%%/bin/perl"
+
+ratelimit_policyd_prestart()
+{
+	if [ ! -f "${ratelimit_policyd_log}" ]; then
+		touch "${ratelimit_policyd_log}"
+		chown ${ratelimit_policyd_user} "${ratelimit_policyd_log}"
+	fi
+
+	piddir=${pidfile%/*}
+	if [ ! -d "${piddir}" ]; then
+		mkdir "${piddir}"
+		chown ${ratelimit_policyd_user}:${ratelimit_policyd_group} "${piddir}"
+	fi
+}
+
+ratelimit_policyd_prestop()
+{
+	## ugly workaround - there is some problem running this on FreeBSD
+	## It does not terminate on SIGTERM until next TCP request is made.
+	## send SIGTERM first
+	kill -TERM `head -n 1 $pidfile`
+	## then do TCP connect by calling printshm which internally call
+	## echo "printshm" | nc -N -w 5 $listen_address $port
+	${procname} printshm
+}
+
+ratelimit_policyd_stats()
+{
+	${procname} printshm
+}
+
+run_rc_command $1
