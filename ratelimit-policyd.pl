@@ -1,7 +1,6 @@
 #!/usr/bin/perl
 use strict;
 use warnings;
-
 use Socket;
 use POSIX ;
 use DBI;
@@ -12,34 +11,35 @@ use Thread::Semaphore;
 use File::Basename;
 my $semaphore = new Thread::Semaphore;
 
-### CONFIGURATION SECTION
-my @allowedhosts    = ('127.0.0.1');
-my $LOGFILE         = "/var/log/ratelimit-policyd.log";
-my $PIDFILE         = "/var/run/ratelimit-policyd.pid";
-my $SYSLOG_IDENT    = "ratelimit-policyd";
-my $SYSLOG_LOGOPT   = "ndelay,pid";
-my $SYSLOG_FACILITY = LOG_MAIL;
-chomp( my $vhost_dir = `pwd`);
-my $port            = 10032;
-my $listen_address  = '127.0.0.1'; # or '0.0.0.0'
-my $s_key_type      = 'email'; # domain or email
-my $dsn             = "DBI:mysql:policyd:127.0.0.1";
-my $db_user         = 'policyd';
-my $db_passwd       = '************';
-my $db_table        = 'ratelimit';
-my $db_quotacol     = 'quota';
-my $db_tallycol     = 'used';
-my $db_updatedcol   = 'updated';
-my $db_expirycol    = 'expiry';
-my $db_wherecol     = 'sender';
-my $db_persistcol   = 'persist';
-my $deltaconf       = 'daily'; # hourly|daily|weekly|monthly
-my $defaultquota    = 300; # 300 recipients by day and by user, CC and CCI count as well
-my $sql_getquota    = "SELECT $db_quotacol, $db_tallycol, $db_expirycol, $db_persistcol FROM $db_table WHERE $db_wherecol = ? AND $db_quotacol > 0";
-my $sql_updatequota = "UPDATE $db_table SET $db_tallycol = $db_tallycol + ?, $db_updatedcol = NOW(), $db_expirycol = ? WHERE $db_wherecol = ?";
-my $sql_updatereset = "UPDATE $db_table SET $db_quotacol = ?, $db_tallycol = ?, $db_updatedcol = NOW(), $db_expirycol = ? WHERE $db_wherecol = ?";
-my $sql_insertquota = "INSERT INTO $db_table ($db_wherecol, $db_quotacol, $db_tallycol, $db_expirycol) VALUES (?, ?, ?, ?)";
-### END OF CONFIGURATION SECTION
+require "/usr/local/etc/ratelimit-policyd.cfg";
+
+our @allowedhosts;
+our $LOGFILE;
+our $PIDFILE;
+our $SYSLOG_IDENT;
+our $SYSLOG_LOGOPT;
+our $SYSLOG_FACILITY;
+our $port;
+our $listen_address;
+our $s_key_type;
+our $dsn;
+our $db_user;
+our $db_passwd;
+our $db_table;
+our $db_quotacol;
+our $db_tallycol;
+our $db_updatedcol;
+our $db_expirycol;
+our $db_wherecol;
+our $db_persistcol;
+our $deltaconf;
+our $defaultquota;
+our $sql_getquota;
+our $sql_updatequota;
+our $sql_updatereset;
+our $sql_insertquota;
+our $thread_count = 3;
+our $min_threads = 2;
 
 $0=join(' ',($0,@ARGV));
 
@@ -70,6 +70,7 @@ openlog($SYSLOG_IDENT, $SYSLOG_LOGOPT, $SYSLOG_FACILITY);
 
 $SIG{TERM} = \&sigterm_handler;
 $SIG{HUP} = \&print_cache;
+
 while (1) {
 	my $i = 0;
 	my @threads;
@@ -117,7 +118,7 @@ sub start_thr {
 	my $client;
 	while(1) {
 		$scoreboard{$threadid} = 'waiting';
-		$semaphore->down();#TODO move to non-block
+		$semaphore->down();	#TODO move to non-block
 		$client_addr = accept($client, SERVER);
 		$semaphore->up();
 		$scoreboard{$threadid} = 'running';
@@ -241,7 +242,7 @@ sub handle_req {
 	my $syslogMsgTpl = sprintf("%s: client=%s[%s], sasl_method=%s, sasl_username=%s, recipient_count=%s, curr_count=%%s/%%s, status=%%s",
 	                           $queue_id, $client_name, $client_address, $sasl_method, $sasl_username, $recipient_count);
 
-	#TODO: Maybe i should move to semaphore!!!
+	#TODO: Maybe I should move to semaphore!!!
 	lock($lock);
 	if (!exists($quotahash{$skey})) {
 		logger("Looking for $skey");
@@ -370,9 +371,6 @@ sub daemonize {
 	my ($i,$pid);
 	my $mask = umask 0027;
 	print "SMTP Policy Daemon. Logging to $LOGFILE\n";
-	#Should i delete this??
-	#$ENV{PATH}="/bin:/usr/bin";
-	#chdir("/");
 	close STDIN;
 	if (!defined(my $pid=fork())) {
 		die "Impossible to fork\n";
