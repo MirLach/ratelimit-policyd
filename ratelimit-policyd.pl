@@ -53,8 +53,7 @@ my %scoreboard :shared;
 my $lock:shared;
 my $cnt=0;
 my $proto = getprotobyname('tcp');
-my $thread_count = 3;
-my $min_threads = 2;
+
 # create a socket, make it reusable
 socket(SERVER, PF_INET, SOCK_STREAM, $proto) or die "socket: $!";
 setsockopt(SERVER, SOL_SOCKET, SO_REUSEADDR, 1) or die "setsock: $!";
