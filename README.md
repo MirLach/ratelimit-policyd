@@ -46,14 +46,16 @@ The original forked code from [bejelith/send_rate_policyd](https://github.com/be
 The script from Onlime Webhosting was modified to :
  - Support smtpd_sender_restrictions (triggerd only on successful SASL login) instead of smtpd_data_restrictions (triggered when processing any outgoing mail)
  - As a consequence, the script is neutral for ISPConfig auto reply, auto forward, and any mail sent by Postfix without authentication (it will not count +1 on the quota for system mails, as long as your $mynetworks is configured accordingly)
- 
+
+## My Modifications
+
 The script from Mathieu Pellegrin (WellHosted) was modified to :
- - removed dependency on Switch
- - modified to use strict and warnings
- - modified shebang line to FreeBSD's #!/usr/local/bin/perl
- - renamed from daemon.pl to ratelimit-policyd.pl
- - use separate file for configuration variables /usr/local/etc/ratelimit-policyd.cfg (script can be updated without overwriting user modified settings)
- - created rc.d/ratelimit-policyd for FreeBSD
+ - **removed dependency on Switch**
+ - **modified to use strict and warnings**
+ - **modified shebang line to FreeBSD's `#!/usr/local/bin/perl`**
+ - renamed from `daemon.pl` to `ratelimit-policyd.pl`
+ - **use separate file for configuration variables `/usr/local/etc/ratelimit-policyd.cfg` (script can be updated without overwriting user modified settings)**
+ - **created `rc.d/ratelimit-policyd` for FreeBSD**
 
 ## Installation
 
