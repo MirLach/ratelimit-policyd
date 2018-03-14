@@ -7,8 +7,12 @@
 
 #
 # Add the following lines to /etc/rc.conf to enable nginx:
-# ratelimit_policyd_enable (bool):   Set to "NO" by default.
-#                                    Set it to "YES" to enable ratelimit_policyd
+# ratelimit_policyd_enable (bool):  Set to "NO" by default.
+#                                   Set it to "YES" to enable ratelimit_policyd
+# ratelimit_policyd_user (str):     User to run as. Default: mailnull
+# ratelimit_policyd_group (str):    Group to run as. Default: mailnull
+# ratelimit_policyd_log (str):      Log filename
+#                                   Must match settings in ratelimit-policyd.cfg
 
 . /etc/rc.subr
 
