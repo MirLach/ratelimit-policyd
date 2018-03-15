@@ -135,20 +135,18 @@ tcp4       0      0 127.0.0.1.10032  *.*                    LISTEN
 
 
 $ cat /var/run/ratelimit-policyd/ratelimit-policyd.pid
-30566
+98518
 
-$ ps aux | grep ratelimit-policyd
-postfix  30566  0.4  0.1 176264 19304 ?        Ssl  14:37   0:00 /usr/local/bin/ratelimit-policyd.pl
+$ ps auxw | grep ratelimit-policyd
+mailnull 98517   0.0  0.0   14504   2040  -  Is    6:04PM      0:00.00 daemon: /usr/local/bin/ratelimit-policyd.pl[98518] (daemon)
+mailnull 98518   0.0  0.4   96956  21960  -  Is    6:04PM      0:01.24 /usr/local/bin/ratelimit-policyd.pl (perl)
 
-$ pstree -p | grep ratelimit
-init(1)-+-/opt/ratelimit-(11298)-+-{/opt/ratelimit-}(11300)
-        |                        |-{/opt/ratelimit-}(11301)
-        |                        |-{/opt/ratelimit-}(11302)
-        |                        |-{/opt/ratelimit-}(14834)
-        |                        |-{/opt/ratelimit-}(15001)
-        |                        |-{/opt/ratelimit-}(15027)
-        |                        |-{/opt/ratelimit-}(15058)
-        |                        `-{/opt/ratelimit-}(15065)
+$ ps auxwH | grep ratelimit-policyd
+mailnull 98517  0.0  0.0   14504   2040  -  Is    6:04PM     0:00.00 daemon: /usr/local/bin/ratelimit-policyd.pl[98518] (daemon)
+mailnull 98518  0.0  0.4   96956  21960  -  Is    6:04PM     0:00.00 /usr/local/bin/ratelimit-policyd.pl (perl)
+mailnull 98518  0.0  0.4   96956  21960  -  Ss    6:04PM     0:01.24 /usr/local/bin/ratelimit-policyd.pl (perl)
+mailnull 98518  0.0  0.4   96956  21960  -  Is    6:04PM     0:00.00 /usr/local/bin/ratelimit-policyd.pl (perl)
+mailnull 98518  0.0  0.4   96956  21960  -  Is    6:04PM     0:00.00 /usr/local/bin/ratelimit-policyd.pl (perl)
 
 ```
 
@@ -157,9 +155,12 @@ Print the cache content (in shared memory) with update statistics:
 ```bash
 $ service ratelimit-policyd stats
 Printing shm:
-Domain		:	Quota	:	Used	:	Expire
-Threads running: 6, Threads waiting: 2
+Domain          :       Quota   :       Used    :       Expire
+Threads running: 1, Threads waiting: 2
 ```
+
+Or call directly `/usr/local/bin/ratelimit-policyd.pl printshm`
+Or network connection `echo 'printshm' | nc -N -w 5 localhost 10032`
 
 ## Postfix Configuration
 
