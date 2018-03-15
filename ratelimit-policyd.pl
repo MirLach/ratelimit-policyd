@@ -15,6 +15,7 @@ require "/usr/local/etc/ratelimit-policyd.cfg";
 
 our @allowedhosts;
 our $LOGFILE;
+our $LOG_LEVEL;
 our $PIDFILE;
 our $SYSLOG_IDENT;
 our $SYSLOG_LOGOPT;
@@ -76,7 +77,7 @@ while (1) {
 	while($i < $thread_count) {
 		#$threads[$i] = threads->new(\&start_thr)->detach();
 		threads->new(\&start_thr);
-		logger("Started thead num $i.");
+		logger('INFO', "Started thead num $i.");
 		$i++;
 	}
 	while(1) {
@@ -88,7 +89,7 @@ while (1) {
 			lock($lock);
 			&commit_cache;
 			&flush_cache;
-			logger("Master: cache committed and flushed");
+			logger('INFO', "Master: cache committed and flushed");
 		}
 		while (my ($k, $v) = each(%scoreboard)) {
 			if ($v eq 'running') {
@@ -99,10 +100,10 @@ while (1) {
 		}
 		if ($r/($r + $w) > 0.9) {
 			threads->new(\&start_thr);
-			logger("New thread started");
+			logger('INFO', "New thread started, $i");
 		}
 		if ($cnt % 150 == 0) {
-			logger("STATS: threads running: $r, threads waiting $w.");
+			logger('INFO', "STATS: threads running: $r, threads waiting $w.");
 		}
 	}
 }
@@ -122,24 +123,23 @@ sub start_thr {
 		$semaphore->up();
 		$scoreboard{$threadid} = 'running';
 		if (!$client_addr) {
-			logger("TID: $threadid accept() failed with: $!");
+			logger('ERROR', "TID: $threadid accept() failed with: $!");
 			next;
 		}	
 		my ($client_port, $client_ip) = unpack_sockaddr_in($client_addr);
 		$client_ipnum = inet_ntoa($client_ip);
-		logger("TID: $threadid accepted from $client_ipnum ...");
+		logger('INFO', "TID: $threadid accepted from $client_ipnum ...");
 		
 		select($client);
 		$|=1;
 	
 		if (grep $_ eq $client_ipnum, @allowedhosts) {
-			#my $client_host = gethostbyaddr($client_ip, AF_INET);
-			#if (! defined ($client_host)) { $client_host=$client_ipnum;}
 			my $message;
 			my @buf;
 			while(!eof($client)) {
 				$message = <$client>;
 				if ($message =~ m/printshm/) {
+					logger('DEBUG', "printshm requested");
 					my $r=0;
 					my $w =0;
 					my $k;
@@ -164,28 +164,32 @@ sub start_thr {
 					next;
 				#} elsif ($message =~ m/^\r?\n/) {
 				} elsif ($message =~ m/^$/) {
-					#logger("Handle new request");
+					logger('DEBUG', "Handle new request");
 					my $ret = &handle_req(@buf);
 					if ($ret =~ m/unknown/) {
+						logger('DEBUG', "Request unknown");
 						last;
 					#New thread model - old code
 					#	shutdown($client,2);
 					#??	threads->exit(0);
 					} else {
+						logger('DEBUG', "action=$ret");
 						print $client "action=$ret\n\n";
 					}
 					@buf = ();
 				} else {
+					logger('WARN', "ressage not understood");
 					print $client "message not understood\r\n";
 				}
 			}
 		} else {
-			logger("Client $client_ipnum connection not allowed.");
+			logger('WARN', "Client $client_ipnum connection not allowed.");
 		}
 		shutdown($client,2);
 		undef $client;
-		logger("TID: $threadid Client $client_ipnum disconnected.");
+		logger('INFO', "TID: $threadid Client $client_ipnum disconnected.");
 	}
+	logger('ERROR', "Exiting thread $threadid");
 	undef $scoreboard{$threadid};
 	threads->exit(0);
 }
@@ -204,7 +208,7 @@ sub handle_req {
 	foreach $aline(@buf) {
 		my @line = split("=", $aline);
 		chomp(@line);
-		#logger("DEBUG ". $line[0] ."=". $line[1]);
+		logger('DEBUG', $line[0] ."=". $line[1]);
 		if ($line[0] eq "protocol_state") {
 			chomp($protocol_state = $line[1]);
 		} elsif ($line[0] eq "sasl_method") {
@@ -224,7 +228,7 @@ sub handle_req {
 
 	if ($protocol_state !~ m/RCPT/ || $sasl_username eq "" ) {
 		# It should not happen if check_policy is chained after proper authentication on smtpd_sender_restrictions
-		logger("protocol_state=$protocol_state sasl_username=$sasl_username");
+		logger('WARN', "protocol_state=$protocol_state sasl_username=$sasl_username");
 		return "dunno";
 	} else {
 		# One RCPT is triggered by outgoing address, including CC and CCI, no need to count
@@ -245,7 +249,7 @@ sub handle_req {
 	#TODO: Maybe I should move to semaphore!!!
 	lock($lock);
 	if (!exists($quotahash{$skey})) {
-		logger("Looking for $skey");
+		logger('INFO', "Looking for $skey");
 		my $dbh = get_db_handler()
 			or return "dunno";;
 		my $sql_query = $dbh->prepare($sql_getquota);
@@ -267,13 +271,13 @@ sub handle_req {
 			$sql_query->finish();
 			my $expire = calcexpire($deltaconf);
 			$sql_query = $dbh->prepare($sql_insertquota);
-			logger("Inserting $skey, $defaultquota, $recipient_count, $expire");
+			logger('INFO', "Inserting $skey, $defaultquota, $recipient_count, $expire");
 			$sql_query->execute($skey, $defaultquota, $recipient_count, $expire)
-				or logger("Query error: ". $sql_query->errstr);
+				or logger('ERROR', "Query error: ". $sql_query->errstr);
 			$sql_query->finish();
 			$dbh->disconnect;
 			$syslogMsg = sprintf($syslogMsgTpl, $recipient_count, $defaultquota, "INSERT");
-			logger($syslogMsg);
+			logger('INFO', $syslogMsg);
 			syslog('notice', $syslogMsg);
 			return "dunno";
 		}
@@ -288,18 +292,18 @@ sub handle_req {
 			or return "dunno";;
 		my $sql_query = $dbh->prepare($sql_updatereset);
 		$sql_query->execute($newQuota, 0, $quotahash{$skey}{'expire'}, $skey)
-			or logger("Query error: ". $sql_query->errstr);
+			or logger('ERROR', "Query error: ". $sql_query->errstr);
 	}
 	$quotahash{$skey}{'tally'} += $recipient_count;
 	$quotahash{$skey}{'sum'}   += $recipient_count;
 	if ($quotahash{$skey}{'tally'} > $quotahash{$skey}{'quota'}) {
 		$syslogMsg = sprintf($syslogMsgTpl, $quotahash{$skey}{'tally'}, $quotahash{$skey}{'quota'}, "OVER_QUOTA");
-		logger($syslogMsg);
+		logger('WARN', $syslogMsg);
 		syslog('warning', $syslogMsg);
 		return "471 $deltaconf message quota exceeded";
 	}
 	$syslogMsg = sprintf($syslogMsgTpl, $quotahash{$skey}{'tally'}, $quotahash{$skey}{'quota'}, "UPDATE");
-	logger($syslogMsg);
+	logger('INFO', $syslogMsg);
 	syslog('info', $syslogMsg);
 	return "dunno";
 }
@@ -307,7 +311,7 @@ sub handle_req {
 sub sigterm_handler {
 	shutdown(SERVER,2);
 	lock($lock);
-	logger("SIGTERM received.\nFlushing cache...\nExiting.");
+	logger('WARN', "SIGTERM received.\nFlushing cache...\nExiting.");
 	&commit_cache;
 	exit(0);
 }
@@ -316,7 +320,7 @@ sub get_db_handler {
 	my $dbh = DBI->connect($dsn, $db_user, $db_passwd, {PrintError => 0});
 	if (!defined($dbh)) {
 		my $syslogMsg = sprintf("DB connection error (%s): %s", $DBI::err, $DBI::errstr);
-		logger($syslogMsg);
+		logger('ERROR', $syslogMsg);
 		syslog('err', $syslogMsg);
 	}
 	return $dbh;
@@ -331,7 +335,7 @@ sub commit_cache {
 	my $v;
 	while(($k,$v) = each(%quotahash)) {
 		$sql_query->execute($quotahash{$k}{'sum'}, $quotahash{$k}{'expire'}, $k)
-			or logger("Query error:".$sql_query->errstr);
+			or logger('ERROR', "Query error:".$sql_query->errstr);
 		$quotahash{$k}{'sum'} = 0;
 	}
 	$dbh->disconnect;
@@ -348,7 +352,7 @@ sub flush_cache {
 sub print_cache {
 	my $k;
 	foreach $k(keys %quotahash) {
-        logger("$k: $quotahash{$k}{'quota'}, $quotahash{$k}{'tally'}");
+        logger('INFO', "$k: $quotahash{$k}{'quota'}, $quotahash{$k}{'tally'}");
     }
 }
 
@@ -408,8 +412,26 @@ sub calcexpire {
 }
 
 sub logger {
-	my ($arg) = @_;
-	my $time = localtime();
-	chomp($time);
-	print LOG  "$time $arg\n";
+	#sub logger ($level, $msg)
+	my ($level, $msg) = @_;
+	my $lvl = 0;
+	if ($level eq 'FATAL') {
+		$lvl = 1;
+	} elsif ($level eq 'ERROR') {
+		$lvl = 2;
+	} elsif ($level eq 'WARN') {
+		$lvl = 3;
+	} elsif ($level eq 'INFO') {
+		$lvl = 4;
+	} elsif ($level eq 'DEBUG') {
+		$lvl = 5;
+	} else {
+		$lvl = 4;
+	}
+	if ($lvl <= $LOG_LEVEL) {
+		#my $time = localtime();
+		my $time = strftime "%Y-%m-%d %H:%M:%S", localtime;
+		chomp($time);
+		print LOG  "$time $level: $msg\n";
+	}
 }
