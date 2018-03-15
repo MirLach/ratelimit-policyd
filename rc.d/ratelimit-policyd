@@ -21,7 +21,7 @@ rcvar=ratelimit_policyd_enable
 
 extra_commands="stats"
 start_precmd="ratelimit_policyd_prestart"
-stop_precmd="ratelimit_policyd_prestop"
+stop_cmd="ratelimit_policyd_stop"
 stats_cmd="ratelimit_policyd_stats"
 
 load_rc_config $name
@@ -54,15 +54,16 @@ ratelimit_policyd_prestart()
 	fi
 }
 
-ratelimit_policyd_prestop()
+ratelimit_policyd_stop()
 {
 	## ugly workaround - there is some problem running this on FreeBSD
 	## It does not terminate on SIGTERM until next TCP request is made.
 	## send SIGTERM first
-	kill -TERM `head -n 1 $pidfile`
+	kill -TERM $(head -n 1 "$pidfile")
 	## then do TCP connect by calling printshm which internally call
 	## echo "printshm" | nc -N -w 5 $listen_address $port
 	${procname} printshm
+	test -f "${pidfile}" && wait_for_pids $(head -n 1 "$pidfile")
 }
 
 ratelimit_policyd_stats()
