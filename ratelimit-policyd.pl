@@ -7,7 +7,7 @@ use DBI;
 use Sys::Syslog;
 use threads;
 use threads::shared;
-use Thread::Semaphore; 
+use Thread::Semaphore;
 use File::Basename;
 my $semaphore = new Thread::Semaphore;
 
@@ -194,7 +194,7 @@ sub handle_req {
 	my @buf = @_;
 	my $protocol_state;
 	my $sasl_method;
-	my $sasl_username; 
+	my $sasl_username;
 	my $recipient_count;
 	my $queue_id;
 	my $client_address;
@@ -296,7 +296,7 @@ sub handle_req {
 		$syslogMsg = sprintf($syslogMsgTpl, $quotahash{$skey}{'tally'}, $quotahash{$skey}{'quota'}, "OVER_QUOTA");
 		logger($syslogMsg);
 		syslog('warning', $syslogMsg);
-		return "471 $deltaconf message quota exceeded"; 
+		return "471 $deltaconf message quota exceeded";
 	}
 	$syslogMsg = sprintf($syslogMsgTpl, $quotahash{$skey}{'tally'}, $quotahash{$skey}{'quota'}, "UPDATE");
 	logger($syslogMsg);
@@ -352,7 +352,7 @@ sub print_cache {
     }
 }
 
-# use this instead of daemonize if you're running the script with your own 
+# use this instead of daemonize if you're running the script with your own
 # daemon starter (e.g. start-stop-daemon)
 sub prepare_log {
 	my ($i,$pid);
