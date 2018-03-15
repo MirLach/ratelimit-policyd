@@ -162,7 +162,8 @@ sub start_thr {
 				} elsif ($message =~ m/=/) {
 					push(@buf, $message);
 					next;
-				} elsif ($message == "\r\n") {
+				#} elsif ($message =~ m/^\r?\n/) {
+				} elsif ($message =~ m/^$/) {
 					#logger("Handle new request");
 					my $ret = &handle_req(@buf);
 					if ($ret =~ m/unknown/) {
