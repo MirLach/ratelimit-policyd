@@ -56,6 +56,7 @@ The script from Mathieu Pellegrin (WellHosted) was modified to :
  - renamed from `daemon.pl` to `ratelimit-policyd.pl`
  - **use separate file for configuration variables `/usr/local/etc/ratelimit-policyd.cfg` (script can be updated without overwriting user modified settings)**
  - **created `rc.d/ratelimit-policyd` for FreeBSD**
+ - **configurable logging levels**
 
 ## Installation
 
