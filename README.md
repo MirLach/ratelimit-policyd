@@ -184,6 +184,28 @@ sample configuration (chained with classic SASL authentication from MySQL):
 smtpd_sender_restrictions = check_sender_access mysql:/etc/postfix/clients.cf, check_policy_service inet:127.0.0.1:10032
 ```
 
+If you are using MUA definition in `master.cf` and SASL to authenticate users, use following `mua_client_restrictions` instead of  `smtpd_sender_restrictions` above
+
+```
+mua_client_restrictions =
+    check_policy_service inet:127.0.0.1:10032,
+    permit_sasl_authenticated,
+    reject
+```
+
+example of MUA in `master.cf`
+
+```
+submission inet n       -       n       -       -       smtpd
+  -o syslog_name=postfix/submission
+  -o smtpd_tls_security_level=encrypt
+  -o smtpd_client_restrictions=$mua_client_restrictions
+smtps     inet  n       -       n       -       -       smtpd
+  -o syslog_name=postfix/smtps
+  -o smtpd_tls_wrappermode=yes
+  -o smtpd_client_restrictions=$mua_client_restrictions
+```
+
 If you're sure that ratelimit-policyd is really running, restart Postfix:
 
 ```
