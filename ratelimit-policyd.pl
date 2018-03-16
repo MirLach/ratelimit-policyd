@@ -73,6 +73,7 @@ openlog($SYSLOG_IDENT, $SYSLOG_LOGOPT, $SYSLOG_FACILITY);
 
 $SIG{TERM} = \&sigterm_handler;
 $SIG{HUP} = \&print_cache;
+$SIG{USR1} = \&reopen_log;
 
 while (1) {
 	my $i = 0;
@@ -378,6 +379,18 @@ sub prepare_log {
 	select((select(LOG), $|=1)[0]);
 	open STDERR, ">>$LOGFILE" or die "Unable to redirect STDERR to STDOUT: $!\n";
 	umask $mask;
+}
+
+## used for log rotation by newsyslog
+sub reopen_log {
+	close STDIN;
+	close STDOUT;
+	close STDERR;
+	open STDIN, "/dev/null";
+	open LOG, ">>$LOGFILE" or die "Unable to open $LOGFILE: $!\n";
+	select((select(LOG), $|=1)[0]);
+	open STDERR, ">>$LOGFILE" or die "Unable to redirect STDERR to STDOUT: $!\n";
+	logger('INFO', "SIGUSR1 received, reopen log $LOGFILE");
 }
 
 sub daemonize {

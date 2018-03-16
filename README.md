@@ -58,6 +58,7 @@ The script from Mathieu Pellegrin (WellHosted) was modified to :
  - **created `rc.d/ratelimit-policyd` for FreeBSD**
  - **configurable logging levels**
  - **send e-mail notifications about over quota users to postmaster**
+ - **reopen log file on SIGUSR1, log can be easily rotated by newsyslog**
 
 ## Installation
 
@@ -224,3 +225,11 @@ Sat Jan 10 12:08:37 2015 07F452AC009F: client=4-3.2-1.cust.example.com[1.2.3.4],
 $ grep ratelimit-policyd /var/log/syslog
 Jan 10 12:08:37 mx1 ratelimit-policyd[2552]: 07F452AC009F: client=4-3.2-1.cust.example.com[1.2.3.4], sasl_method=PLAIN, sasl_username=demo@example.com, recipient_count=1, curr_count=6/1000, status=UPDATE
 ```
+
+Do not forget to enable log rotation in `/etc/newsyslog.conf` or `/usr/local/etc/newsyslog.conf.d/ratelimit-policyd.conf`
+
+```
+/var/log/ratelimit-policyd.log mailnull:wheel 640 9 *   @T00  ZC  /var/run/ratelimit-policyd/ratelimit-policyd.pid  30
+```
+
+Last number `30` means send `SIGUSR1` to PID from given file
