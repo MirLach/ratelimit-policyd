@@ -57,6 +57,7 @@ The script from Mathieu Pellegrin (WellHosted) was modified to :
  - **use separate file for configuration variables `/usr/local/etc/ratelimit-policyd.cfg` (script can be updated without overwriting user modified settings)**
  - **created `rc.d/ratelimit-policyd` for FreeBSD**
  - **configurable logging levels**
+ - **send e-mail notifications about over quota users to postmaster**
 
 ## Installation
 
@@ -83,16 +84,22 @@ Adjust configuration options in ```/usr/local/etc/ratelimit-policyd.cfg```:
 ## configuration must by valid Perl code, variables started with "our"
 our @allowedhosts    = ('127.0.0.1', '10.0.0.1');
 our $LOGFILE         = "/var/log/ratelimit-policyd.log";
+our $LOG_LEVEL       = "1";	## 0=disabled, 1=fatal, 2=error, 3=warn, 4=notice, 5=debug
 our $PIDFILE         = "/var/run/ratelimit-policyd/ratelimit-policyd.pid";
 our $SYSLOG_IDENT    = "ratelimit-policyd";
 our $SYSLOG_LOGOPT   = "ndelay,pid";
 our $SYSLOG_FACILITY = LOG_MAIL;
-#chomp( my $vhost_dir = `pwd`);
+
+## send notifications about over quota users to postmaster
+our $notify_from     = 'postmaster@example.com';
+our $notify_to       = '';	## leave empty to disable notifications
+our $notify_subject  = 'ratelimit-policyd notification';
+
 our $port            = 10032;
 our $listen_address  = '127.0.0.1'; # or '0.0.0.0'
 our $s_key_type      = 'email'; # domain or email
-our $dsn             = "DBI:mysql:sys_mail:localhost";
-our $db_user         = 'sys_mail_ratelimit';
+our $dsn             = "DBI:mysql:policyd:localhost";
+our $db_user         = 'policyd';
 our $db_passwd       = '************';
 our $db_table        = 'ratelimit';
 our $db_quotacol     = 'quota';

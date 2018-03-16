@@ -20,6 +20,9 @@ our $PIDFILE;
 our $SYSLOG_IDENT;
 our $SYSLOG_LOGOPT;
 our $SYSLOG_FACILITY;
+our $notify_from;
+our $notify_to;
+our $notify_subject;
 our $port;
 our $listen_address;
 our $s_key_type;
@@ -294,12 +297,18 @@ sub handle_req {
 		$sql_query->execute($newQuota, 0, $quotahash{$skey}{'expire'}, $skey)
 			or logger('ERROR', "Query error: ". $sql_query->errstr);
 	}
+	my $used_b4_count = $quotahash{$skey}{'tally'};
 	$quotahash{$skey}{'tally'} += $recipient_count;
 	$quotahash{$skey}{'sum'}   += $recipient_count;
 	if ($quotahash{$skey}{'tally'} > $quotahash{$skey}{'quota'}) {
 		$syslogMsg = sprintf($syslogMsgTpl, $quotahash{$skey}{'tally'}, $quotahash{$skey}{'quota'}, "OVER_QUOTA");
 		logger('WARN', $syslogMsg);
 		syslog('warning', $syslogMsg);
+		## send notification only on the first over quota event
+		## (when "used" was lower than "quota" before this attempt)
+		if ($used_b4_count <= $quotahash{$skey}{'quota'}) {
+			send_notify($skey, $syslogMsg);
+		}
 		return "471 $deltaconf message quota exceeded";
 	}
 	$syslogMsg = sprintf($syslogMsgTpl, $quotahash{$skey}{'tally'}, $quotahash{$skey}{'quota'}, "UPDATE");
@@ -429,9 +438,21 @@ sub logger {
 		$lvl = 4;
 	}
 	if ($lvl <= $LOG_LEVEL) {
-		#my $time = localtime();
 		my $time = strftime "%Y-%m-%d %H:%M:%S", localtime;
 		chomp($time);
 		print LOG  "$time $level: $msg\n";
+	}
+}
+
+sub send_notify {
+	if ($notify_to !~ /^\s*$/) {
+		my ($skey_user, $body) = @_;
+		open(MAIL, "|/usr/sbin/sendmail -t");
+		print MAIL "From: $notify_from\n";
+		print MAIL "To: $notify_to\n";
+		print MAIL "Subject: $notify_subject :: $skey_user\n\n";
+		print MAIL "$body\n";
+		close(MAIL);
+		logger('INFO', "Sending notification about $skey_user to $notify_to");
 	}
 }
