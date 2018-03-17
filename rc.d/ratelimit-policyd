@@ -43,14 +43,12 @@ command_args="-f -p ${pidfile} ${procname}"
 ratelimit_policyd_prestart()
 {
 	if [ ! -f "${ratelimit_policyd_log}" ]; then
-		touch "${ratelimit_policyd_log}"
-		chown ${ratelimit_policyd_user} "${ratelimit_policyd_log}"
+		install -o ${ratelimit_policyd_user} -m 640 /dev/null "${ratelimit_policyd_log}"
 	fi
 
 	piddir=${pidfile%/*}
 	if [ ! -d "${piddir}" ]; then
-		mkdir "${piddir}"
-		chown ${ratelimit_policyd_user}:${ratelimit_policyd_group} "${piddir}"
+		install -d -o ${ratelimit_policyd_user} -g ${ratelimit_policyd_group} -m 755 "${piddir}"
 	fi
 }
 
