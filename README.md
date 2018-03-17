@@ -75,8 +75,8 @@ $ mysql -u root -p < mysql-schema.sql
 ```
 
 ```sql
-GRANT USAGE ON *.* TO policyd@'localhost' IDENTIFIED BY '********';
-GRANT SELECT, INSERT, UPDATE, DELETE ON policyd.* TO policyd@'localhost';
+GRANT USAGE ON *.* TO 'policyd'@'localhost' IDENTIFIED BY '********';
+GRANT SELECT, INSERT, UPDATE, DELETE ON `policyd`.* TO 'policyd'@'localhost';
 ```
 
 Adjust configuration options in ```/usr/local/etc/ratelimit-policyd.cfg```:
@@ -173,7 +173,7 @@ Or network connection `echo 'printshm' | nc -N -w 5 localhost 10032`
 
 ## Postfix Configuration
 
-Modify the postfix data restriction class ```smtpd_sender_restrictions``` like the following, ```/etc/postfix/main.cf```:
+Modify the postfix data restriction class ```smtpd_sender_restrictions``` like the following, ```/usr/local/etc/postfix/main.cf```:
 
 ```
 smtpd_sender_restrictions = check_policy_service inet:$IP:$PORT
@@ -182,7 +182,9 @@ smtpd_sender_restrictions = check_policy_service inet:$IP:$PORT
 sample configuration (chained with classic SASL authentication from MySQL):
 
 ```
-smtpd_sender_restrictions = check_sender_access mysql:/etc/postfix/clients.cf, check_policy_service inet:127.0.0.1:10032
+smtpd_sender_restrictions =
+    check_sender_access mysql:/usr/local/etc/postfix/clients.cf,
+	check_policy_service inet:127.0.0.1:10032
 ```
 
 If you are using MUA definition in `master.cf` and SASL to authenticate users, use following `mua_client_restrictions` instead of  `smtpd_sender_restrictions` above
