@@ -41,16 +41,6 @@ mysql_query() {
 	mysql -t -h ${db_host} -u ${db_user} -p${db_pass} ${db_name} -e "$1" $2 || rc=3
 }
 
-case "$daily_ratelimit_policyd_cleanup_enable" in
-	[Yy][Ee][Ss])
-	case "$daily_ratelimit_policyd_cleanup_verbose" in
-		[Yy][Ee][Ss])
-		verbose_c="-vv"
-		echo 'ratelimit-policyd cleanup:'
-	esac
-	mysql_query "UPDATE ${db_table} SET used=0 WHERE expiry < UNIX_TIMESTAMP()" "${verbose_c}"
-esac
-
 case "$daily_ratelimit_policyd_stats_enable" in
 	[Yy][Ee][Ss])
 	if [ -n "${daily_ratelimit_policyd_stats_columns}" ]; then
@@ -58,8 +48,20 @@ case "$daily_ratelimit_policyd_stats_enable" in
 	else
 		selec_cols="sender, quota, used, FROM_UNIXTIME(expiry) AS expiry_date"
 	fi
+	echo ''
 	echo 'ratelimit-policyd stats:'
 	mysql_query "SELECT ${selec_cols} FROM ${db_table} WHERE used > 0"
+esac
+
+case "$daily_ratelimit_policyd_cleanup_enable" in
+	[Yy][Ee][Ss])
+	case "$daily_ratelimit_policyd_cleanup_verbose" in
+		[Yy][Ee][Ss])
+		verbose_c="-vv"
+		echo ''
+		echo 'ratelimit-policyd cleanup:'
+	esac
+	mysql_query "UPDATE ${db_table} SET used=0 WHERE expiry < UNIX_TIMESTAMP()" "${verbose_c}"
 esac
 
 exit $rc
