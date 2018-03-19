@@ -36,9 +36,6 @@ pidfile="/var/run/ratelimit-policyd/ratelimit-policyd.pid"
 procname="/usr/local/bin/ratelimit-policyd.pl"
 command="/usr/sbin/daemon"
 command_args="-f -p ${pidfile} ${procname}"
-#command_args="-p ${pidfile} ${procname}"	## debug, print errors to stderr
-#command_args="-f -p ${pidfile} -u ${ratelimit_policyd_user} ${procname}"
-#command_interpreter="%%LOCALBASE%%/bin/perl"
 
 ratelimit_policyd_prestart()
 {
