@@ -16,7 +16,7 @@ Forked from onlime/ratelimit-policyd and modified to ensure that only authentica
 
 ## Purpose
 
-This small Perl daemon **limits the number of e-mails** sent by users through your Postfix server, and store message quota in MySQL. It *counts* the number of *recipients for each sent e-mail*. You can setup a send rate per user or sender domain (via SASL username) on **daily/weekly/monthly** basis.
+This small Perl daemon **limits the number of e-mails** sent by users through your Postfix server, and store message quota in MySQL. It **counts** the number of **recipients for each sent e-mail**. You can setup a send rate per user or sender domain (via SASL username) on **daily/weekly/monthly** basis.
 
 **The program uses the Postfix policy delegation protocol to control access to the mail system before a message has been accepted (please visit [SMTPD_POLICY_README.html](http://www.postfix.org/SMTPD_POLICY_README.html) for more information).**
 
@@ -31,13 +31,13 @@ The original code from [bejelith/send_rate_policyd](https://github.com/bejelith/
 
 - automatically inserts new SASL-users (upon first e-mail sent)
 - syslog messaging (similar to Postfix-policyd) including all relevant information and counter/quota
-- added logrotation script for /var/log/ratelimit-policyd.log
+- added logrotation script for `/var/log/ratelimit-policyd.log`
 - added flag in ratelimit DB table to make specific quotas persistent (all others will get reset to default after expiry)
 - continue raising counter even in over quota state
 
 Visit https://github.com/mpellegrin/ratelimit-policyd for more details.
 
-The script from Onlime Webhosting was modified to:
+The script from Mathieu Pellegrin was modified to:
  - Support `smtpd_sender_restrictions` (triggerd only on successful SASL login) instead of `smtpd_data_restrictions` (triggered when processing any outgoing mail)
  - As a consequence, the script is neutral for ISPConfig auto reply, auto forward, and any mail sent by Postfix without authentication (it will not count +1 on the quota for system mails, as long as your $mynetworks is configured accordingly)
 
@@ -66,7 +66,7 @@ $ pkg install ratelimit-policyd
 Create the DB schema and user:
 
 ```bash
-$ mysql -u root -p < mysql-schema.sql
+$ mysql -u root -p < /usr/local/share/ratelimit-policyd/mysql-schema.sql
 ```
 
 ```sql
@@ -74,7 +74,7 @@ GRANT USAGE ON *.* TO 'policyd'@'localhost' IDENTIFIED BY '********';
 GRANT SELECT, INSERT, UPDATE, DELETE ON `policyd`.* TO 'policyd'@'localhost';
 ```
 
-Adjust configuration options in ```/usr/local/etc/ratelimit-policyd.cfg```:
+Adjust configuration options in `/usr/local/etc/ratelimit-policyd.cfg`:
 
 ```perl
 ## configuration must by valid Perl code, variables started with "our"
@@ -118,8 +118,6 @@ our $min_threads = 2;
 
 1;
 ```
-
-**Take care of using a port higher than 1024 to run the script as non-root (our init script runs it as user "postfix").**
 
 In most cases, the default configuration should be fine. Just don't forget to paste your DB password in ``$db_password``.
 
@@ -168,7 +166,7 @@ Or network connection `echo 'printshm' | nc -N -w 5 localhost 10032`
 
 ## Postfix Configuration
 
-Modify the postfix data restriction class ```smtpd_sender_restrictions``` like the following, ```/usr/local/etc/postfix/main.cf```:
+Modify the postfix data restriction class `smtpd_sender_restrictions` like the following, `/usr/local/etc/postfix/main.cf`:
 
 ```
 smtpd_sender_restrictions = check_policy_service inet:$IP:$PORT
@@ -212,7 +210,7 @@ $ service postfix restart
 
 ## Logging
 
-Detailed logging is written to ``/var/log/ratelimit-policyd.log```. In addition, the most important information including the counter status is written to syslog:
+Detailed logging is written to `/var/log/ratelimit-policyd.log`. In addition, the most important information including the counter status is written to syslog:
 
 ```
 $ tail -f /var/log/ratelimit-policyd.log 
