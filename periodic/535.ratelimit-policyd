@@ -1,9 +1,53 @@
 #!/bin/sh
 
-config="ratelimit-policyd.cfg"
+## $Id$
 
-db_name=$(awk -F'=' '$1 ~ /^our[[:space:]]+\$dsn/ { split($2, a, ":") } END { print a[3] }' "${config}")
-db_host=$(awk -F'=' '$1 ~ /^our[[:space:]]+\$dsn/ { split($2, a, ":") } END { print a[4] }' "${config}")
-db_user=$(awk -F'=' '$1 ~ /^our[[:space:]]+\$db_user/ { sub(/^[[:space:]]*["'"'"']/, "", $2); sub(/["'"'"'];[[:space:]]*$/, "", $2); print $2 }' "${config}")
-db_pass=$(awk -F'=' '$1 ~ /^our[[:space:]]+\$db_passwd/ { sub(/^[[:space:]]*["'"'"']/, "", $2); sub(/["'"'"'];[[:space:]]*$/, "", $2); print $2 }' "${config}")
-db_table=$(awk -F'=' '$1 ~ /^our[[:space:]]+\$db_table/ { sub(/^[[:space:]]*["'"'"']/, "", $2); sub(/["'"'"'];[[:space:]]*$/, "", $2); print $2 }' "${config}")
+## Set used=0 for expired entries
+## Or usage stats for accoutn with used>0.
+
+
+## If there is a global system configuration file, suck it in.
+##
+if [ -r /etc/defaults/periodic.conf ]
+then
+	. /etc/defaults/periodic.conf
+	source_periodic_confs
+fi
+
+config="/usr/local/etc/ratelimit-policyd.cfg"
+
+deliml="^[[:space:]]*['\"]"
+delimr="['\"];[[:space:]]*$"
+db_name=$(awk -F'=' '$1 ~ /^our[[:space:]]+\$dsn/ { split($2, a, ":") }
+	END { print a[3] }' "${config}")
+db_host=$(awk -F'=' '$1 ~ /^our[[:space:]]+\$dsn/ { split($2, a, ":") }
+	END { sub(/'${delimr}'/, "", a[4]); print a[4] }' "${config}")
+db_user=$(awk -F'=' '$1 ~ /^our[[:space:]]+\$db_user/ {
+	gsub(/'${deliml}'|'${delimr}'/, "", $2); print $2 }' "${config}")
+db_pass=$(awk -F'=' '$1 ~ /^our[[:space:]]+\$db_passwd/ {
+	gsub(/'${deliml}'|'${delimr}'/, "", $2); print $2 }' "${config}")
+db_table=$(awk -F'=' '$1 ~ /^our[[:space:]]+\$db_table/ {
+	gsub(/'${deliml}'|'${delimr}'/, "", $2); print $2 }' "${config}")
+
+rc=0
+
+mysql_query() {
+	rc=1
+	mysql -t -h ${db_host} -u ${db_user} -p${db_pass} ${db_name} -e "$1" $2 || rc=3
+}
+
+case "$daily_ratelimit_policyd_cleanup_enable" in
+	[Yy][Ee][Ss])
+	case "$daily_ratelimit_policyd_cleanup_verbose" in
+		[Yy][Ee][Ss])
+		verbose_c="-vv"
+	esac
+	mysql_query "UPDATE ${db_table} SET used=0 WHERE expiry < UNIX_TIMESTAMP()" "${verbose_c}"
+esac
+
+case "$daily_ratelimit_policyd_stats_enable" in
+	[Yy][Ee][Ss])
+	mysql_query "SELECT *, FROM_UNIXTIME(expiry) AS expiry_date FROM ${db_table} WHERE used > 0"
+esac
+
+exit $rc
