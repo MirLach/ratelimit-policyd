@@ -46,6 +46,7 @@ case "$daily_ratelimit_policyd_cleanup_enable" in
 	case "$daily_ratelimit_policyd_cleanup_verbose" in
 		[Yy][Ee][Ss])
 		verbose_c="-vv"
+		echo 'ratelimit-policyd cleanup:'
 	esac
 	mysql_query "UPDATE ${db_table} SET used=0 WHERE expiry < UNIX_TIMESTAMP()" "${verbose_c}"
 esac
@@ -57,6 +58,7 @@ case "$daily_ratelimit_policyd_stats_enable" in
 	else
 		selec_cols="sender, quota, used, FROM_UNIXTIME(expiry) AS expiry_date"
 	fi
+	echo 'ratelimit-policyd stats:'
 	mysql_query "SELECT ${selec_cols} FROM ${db_table} WHERE used > 0"
 esac
 
