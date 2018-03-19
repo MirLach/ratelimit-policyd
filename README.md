@@ -12,44 +12,38 @@ Modified by Miroslav Lachman to FreeBSD ports. (2018)
 
 Forked from onlime/ratelimit-policyd and modified to ensure that only authenticated users are counted for quota. All credits go to Simone Caruso for his original work (bejelith/send_rate_policyd).
 
-This project was forked and modified for inclusion in FreeBSD ports tree. Dropped dependency on Switch.pm, added use strict and warnings, separate config file, rc script for automatic start on system boot.
+**This project was forked and modified for inclusion in `FreeBSD` ports tree.** Dropped dependency on Switch.pm, added use strict and warnings, separate config file, rc script for automatic start on system boot.
 
 ## Purpose
 
-This small Perl daemon **limits the number of emails** sent by users through your Postfix server, and store message quota in a RDMS system (MySQL). It counts the number of recipients for each sent email. You can setup a send rate per user or sender domain (via SASL username) on **daily/weekly/monthly** basis.
+This small Perl daemon **limits the number of e-mails** sent by users through your Postfix server, and store message quota in MySQL. It *counts* the number of *recipients for each sent e-mail*. You can setup a send rate per user or sender domain (via SASL username) on **daily/weekly/monthly** basis.
 
 **The program uses the Postfix policy delegation protocol to control access to the mail system before a message has been accepted (please visit [SMTPD_POLICY_README.html](http://www.postfix.org/SMTPD_POLICY_README.html) for more information).**
 
-For a long time we were using Postfix-Policyd v1 (the old 1.82) in production instead, but that project was no longer maintained and the successor [PolicyD v2 (codename "cluebringer")](http://wiki.policyd.org/) got overly complex and badly documented. Also, PolicyD seems to have been abandoned since 2013.
-
-ratelimit-policyd will never be as feature-rich as other policy daemons. Its main purpose is to limit the number of emails per account, nothing more and nothing less. We focus on performance and simplicity.
+`ratelimit-policyd` will never be as feature-rich as other policy daemons. Its main purpose is to limit the number of e-mails per account, nothing more and nothing less. We focus on performance and simplicity.
 
 **This daemon caches the quota in memory, so you don't need to worry about I/O operations!**
+Cache is flushed (written to MySQL table) every 30 seconds.
 
 ## New Features
 
-The original forked code from [bejelith/send_rate_policyd](https://github.com/bejelith/send_rate_policyd) was improved with the following new features:
+The original code from [bejelith/send_rate_policyd](https://github.com/bejelith/send_rate_policyd) was improved by Mathieu Pellegrin with the following new features:
 
-- automatically inserts new SASL-users (upon first email sent)
-- Debian default init.d startscript
-- added installer and documentation
-- bugfix: weekly mode did not work (expiry date was not correctly calculated)
-- bugfix: counters did not get reset after expiry
-- additional information in DB: updated timestamp
-- added view_ratelimit in DB to make Unix timestamps human readable (default datetime format)
+- automatically inserts new SASL-users (upon first e-mail sent)
 - syslog messaging (similar to Postfix-policyd) including all relevant information and counter/quota
-- more detailed logging
 - added logrotation script for /var/log/ratelimit-policyd.log
 - added flag in ratelimit DB table to make specific quotas persistent (all others will get reset to default after expiry)
 - continue raising counter even in over quota state
 
-The script from Onlime Webhosting was modified to :
- - Support smtpd_sender_restrictions (triggerd only on successful SASL login) instead of smtpd_data_restrictions (triggered when processing any outgoing mail)
+Visit https://github.com/mpellegrin/ratelimit-policyd for more details.
+
+The script from Onlime Webhosting was modified to:
+ - Support `smtpd_sender_restrictions` (triggerd only on successful SASL login) instead of `smtpd_data_restrictions` (triggered when processing any outgoing mail)
  - As a consequence, the script is neutral for ISPConfig auto reply, auto forward, and any mail sent by Postfix without authentication (it will not count +1 on the quota for system mails, as long as your $mynetworks is configured accordingly)
 
 ## My Modifications
 
-The script from Mathieu Pellegrin (WellHosted) was modified to :
+The script from Mathieu Pellegrin (WellHosted) was modified to:
  - **removed dependency on Switch**
  - **modified to use strict and warnings**
  - **modified shebang line to FreeBSD's `#!/usr/local/bin/perl`**
@@ -59,6 +53,7 @@ The script from Mathieu Pellegrin (WellHosted) was modified to :
  - **configurable logging levels**
  - **send e-mail notifications about over quota users to postmaster**
  - **reopen log file on SIGUSR1, log can be easily rotated by newsyslog**
+ - **created `periodic/daily/535.ratelimit-policyd`**
 
 ## Installation
 
@@ -98,7 +93,7 @@ our $notify_subject  = 'ratelimit-policyd notification';
 
 our $port            = 10032;
 our $listen_address  = '127.0.0.1'; # or '0.0.0.0'
-our $s_key_type      = 'email'; # domain or email
+our $s_key_type      = 'email'; # domain or e-mail
 our $dsn             = "DBI:mysql:policyd:localhost";
 our $db_user         = 'policyd';
 our $db_passwd       = '************';
@@ -235,3 +230,21 @@ Do not forget to enable log rotation in `/etc/newsyslog.conf` or `/usr/local/etc
 ```
 
 Last number `30` means send `SIGUSR1` to PID from given file
+
+## Periodic
+
+It is just an example script. Stats are useful only in some small invironment. If you have hunderds or thousands of account use something else to report statistics.
+Cleanup function is not really neccessary, it just sets used=0 for old entries before user send another e-mail after expiry date. Affects only verbose stats. Nothing else.
+
+To set used=0 for expired entries put this in to `/etc/periodic.conf`
+
+    `daily_ratelimit_policyd_cleanup_enable="YES"`
+    `daily_ratelimit_policyd_cleanup_verbose="NO"`
+
+To show usage stats for accounts with used>0 add this
+
+    `daily_ratelimit_policyd_stats_enable="YES"`
+
+You can choose what SQL columns will be used for `SELECT` query and you can use SQL functions too
+
+    `daily_ratelimit_policyd_stats_columns="sender, quota, used, FROM_UNIXTIME(expiry) AS expiry_date"`

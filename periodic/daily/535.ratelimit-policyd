@@ -5,7 +5,7 @@
 ## Set used=0 for expired entries
 ##   daily_ratelimit_policyd_cleanup_enable="YES"
 ##
-## Or show usage stats for accoutn with used>0.
+## Or show usage stats for accounts with used>0.
 ##    daily_ratelimit_policyd_cleanup_verbose="YES"
 ##    daily_ratelimit_policyd_stats_enable="YES"
 ##    daily_ratelimit_policyd_stats_columns="sender, quota, used, expiry"
