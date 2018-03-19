@@ -3,8 +3,13 @@
 ## $Id$
 
 ## Set used=0 for expired entries
-## Or usage stats for accoutn with used>0.
-
+##   daily_ratelimit_policyd_cleanup_enable="YES"
+##
+## Or show usage stats for accoutn with used>0.
+##    daily_ratelimit_policyd_cleanup_verbose="YES"
+##    daily_ratelimit_policyd_stats_enable="YES"
+##    daily_ratelimit_policyd_stats_columns="sender, quota, used, expiry"
+## You can set what SQL columns will be used for SELECT query
 
 ## If there is a global system configuration file, suck it in.
 ##
@@ -47,7 +52,12 @@ esac
 
 case "$daily_ratelimit_policyd_stats_enable" in
 	[Yy][Ee][Ss])
-	mysql_query "SELECT *, FROM_UNIXTIME(expiry) AS expiry_date FROM ${db_table} WHERE used > 0"
+	if [ -n "${daily_ratelimit_policyd_stats_columns}" ]; then
+		selec_cols=${daily_ratelimit_policyd_stats_columns}
+	else
+		selec_cols="sender, quota, used, FROM_UNIXTIME(expiry) AS expiry_date"
+	fi
+	mysql_query "SELECT ${selec_cols} FROM ${db_table} WHERE used > 0"
 esac
 
 exit $rc
