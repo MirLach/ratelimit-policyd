@@ -1,0 +1,9 @@
+#!/bin/sh
+
+config="ratelimit-policyd.cfg"
+
+db_name=$(awk -F'=' '$1 ~ /^our[[:space:]]+\$dsn/ { split($2, a, ":") } END { print a[3] }' "${config}")
+db_host=$(awk -F'=' '$1 ~ /^our[[:space:]]+\$dsn/ { split($2, a, ":") } END { print a[4] }' "${config}")
+db_user=$(awk -F'=' '$1 ~ /^our[[:space:]]+\$db_user/ { sub(/^[[:space:]]*["'"'"']/, "", $2); sub(/["'"'"'];[[:space:]]*$/, "", $2); print $2 }' "${config}")
+db_pass=$(awk -F'=' '$1 ~ /^our[[:space:]]+\$db_passwd/ { sub(/^[[:space:]]*["'"'"']/, "", $2); sub(/["'"'"'];[[:space:]]*$/, "", $2); print $2 }' "${config}")
+db_table=$(awk -F'=' '$1 ~ /^our[[:space:]]+\$db_table/ { sub(/^[[:space:]]*["'"'"']/, "", $2); sub(/["'"'"'];[[:space:]]*$/, "", $2); print $2 }' "${config}")
