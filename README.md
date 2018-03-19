@@ -231,7 +231,8 @@ Last number `30` means send `SIGUSR1` to PID from given file
 
 ## Periodic
 
-It is just an example script. Stats are useful only in some small invironment. If you have hunderds or thousands of account use something else to report statistics.
+It is just an example script. Stats are useful only in some small environment. If you have hunderds or thousands of accounts use something else to report statistics.
+
 Cleanup function is not really neccessary, it just sets used=0 for old entries before user send another e-mail after expiry date. Affects only verbose stats. Nothing else.
 
 To set used=0 for expired entries put this in to `/etc/periodic.conf`
@@ -246,3 +247,15 @@ To show usage stats for accounts with used>0 add this
 You can choose what SQL columns will be used for `SELECT` query and you can use SQL functions too
 
     `daily_ratelimit_policyd_stats_columns="sender, quota, used, FROM_UNIXTIME(expiry) AS expiry_date"`
+
+```
++---------------------------+-------+------+---------------------+
+| sender                    | quota | used | expiry_date         |
++---------------------------+-------+------+---------------------+
+| user1@example.com         |    50 |   45 | 2018-03-20 00:00:00 |
+| user2@another.tld         |   100 |  165 | 2018-03-20 00:00:00 |
+| somebody@elsw.where       |   200 |   11 | 2018-03-20 00:00:00 |
++---------------------------+-------+------+---------------------+
+```
+
+Note quota/used 100/165 - used counts failed attempts after quota has been reached too but no e-mail was send after 100 was reached.
