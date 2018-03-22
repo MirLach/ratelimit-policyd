@@ -38,7 +38,7 @@ rc=0
 
 mysql_query() {
 	rc=1
-	mysql -t -h ${db_host} -u ${db_user} -p${db_pass} ${db_name} -e "$1" $2 || rc=3
+	/usr/local/bin/mysql -t -h ${db_host} -u ${db_user} -p${db_pass} ${db_name} -e "$1" $2 || rc=3
 }
 
 case "$daily_ratelimit_policyd_stats_enable" in
