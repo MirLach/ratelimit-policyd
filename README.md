@@ -177,7 +177,7 @@ sample configuration (chained with classic SASL authentication from MySQL):
 ```
 smtpd_sender_restrictions =
     check_sender_access mysql:/usr/local/etc/postfix/clients.cf,
-	check_policy_service inet:127.0.0.1:10032
+    check_policy_service inet:127.0.0.1:10032
 ```
 
 If you are using MUA definition in `master.cf` and SASL to authenticate users, use following `mua_client_restrictions` instead of  `smtpd_sender_restrictions` above
