@@ -54,11 +54,11 @@ ratelimit_policyd_stop()
 	## ugly workaround - there is some problem running this on FreeBSD
 	## It does not terminate on SIGTERM until next TCP request is made.
 	## send SIGTERM first
-	kill -TERM $(head -n 1 "$pidfile")
+	test -f "${pidfile}" && kill -TERM $(head -n 1 "${pidfile}")
 	## then do TCP connect by calling printshm which internally call
 	## echo "printshm" | nc -N -w 5 $listen_address $port
 	${procname} printshm
-	test -f "${pidfile}" && wait_for_pids $(head -n 1 "$pidfile")
+	test -f "${pidfile}" && wait_for_pids $(head -n 1 "${pidfile}")
 }
 
 ratelimit_policyd_stats()
