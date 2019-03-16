@@ -25,7 +25,7 @@ deliml="^[[:space:]]*['\"]"
 delimr="['\"];[[:space:]]*$"
 db_name=$(awk -F'=' '$1 ~ /^our[[:space:]]+\$dsn/ { split($2, a, ":") }
 	END { print a[3] }' "${config}")
-db_host=$(awk -F'=' '$1 ~ /^our[[:space:]]+\$dsn/ { split($2, a, ":") }
+db_host=$(awk -F'=' '$1 ~ /^our[[:space:]]+\$dsn/ { split($2, a, "[:;]") }
 	END { sub(/'${delimr}'/, "", a[4]); print a[4] }' "${config}")
 db_user=$(awk -F'=' '$1 ~ /^our[[:space:]]+\$db_user/ {
 	gsub(/'${deliml}'|'${delimr}'/, "", $2); print $2 }' "${config}")
